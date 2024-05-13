@@ -247,7 +247,7 @@ def main():
         base=args.base,
         username=args.username,
         password=args.password,
-        api_key=args.api_key,        
+        api_key=args.api_key,
     )
     print("initialized client")
 
@@ -257,6 +257,7 @@ def main():
         client.export_stations(args.outpath)
     elif args.method in ["export-trips", "export_trips"]:
         client.export_trips(args.outpath)
+
 
 if __name__ == "__main__":
     main()
