@@ -107,7 +107,7 @@ class PBSC:
                 ]
             )
 
-    def export_stations(self, filepath):
+    def _get_stations(self):
         url = self.base + "/v1/stations/export"
         params = {
             "count": self.default_count,
@@ -141,6 +141,11 @@ class PBSC:
             for row in rows
         ]
 
+        return rows
+
+    def export_stations(self, filepath):
+        rows = self._get_stations()
+
         # see https://stackoverflow.com/questions/3191528/csv-in-python-adding-an-extra-carriage-return-on-windows
         with open(filepath, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=DEFAULT_STATION_FIELD_NAMES)
@@ -153,6 +158,12 @@ class PBSC:
             )
 
     def export_trips(self, filepath, end=None, buffer_period=0, wait=30):
+        stations = self._get_stations()
+
+        station_id_to_location = dict(
+            [(station["Station Id"], station["Location"]) for station in stations]
+        )
+
         if end is None:
             end = date.today() - timedelta(days=buffer_period)
 
@@ -182,12 +193,29 @@ class PBSC:
 
             with StringIO(res.text) as f:
                 reader = csv.DictReader(f)
-                fieldnames = reader.fieldnames
+                fieldnames = reader.fieldnames + [
+                    "Start Station Location",
+                    "End Station Location",
+                ]
                 rows = list(reader)
 
             # to-do: make this more sophisticated in order to avoid breaking when there's a random month of data missing
             if len(rows) == 0:
                 break
+
+            # add locations
+            rows = [
+                {
+                    **row,
+                    "Start Station Location": station_id_to_location.get(
+                        row["Start Station Id"], None
+                    ),
+                    "End Station Location": station_id_to_location.get(
+                        row["End Station Id"], None
+                    ),
+                }
+                for row in rows
+            ]
 
             # flip rows, so going from latest to earliest
             rows.reverse()
