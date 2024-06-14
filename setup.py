@@ -12,7 +12,7 @@ setup(
     entry_points={
         "console_scripts": ["pbsc=pbsc.__init__:main"],
     },
-    version="0.0.1",
+    version="0.1.0",
     description="High-Level API Client for Public Bike System Company",
     long_description=long_description,
     long_description_content_type="text/markdown",
