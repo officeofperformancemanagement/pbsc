@@ -164,6 +164,10 @@ class PBSC:
             [(station["Station Id"], station["Location"]) for station in stations]
         )
 
+        station_id_to_name = dict(
+            [(station["Station Id"], station["Name"]) for station in stations]
+        )
+
         if end is None:
             end = date.today() - timedelta(days=buffer_period)
 
@@ -196,6 +200,8 @@ class PBSC:
                 fieldnames = reader.fieldnames + [
                     "Start Station Location",
                     "End Station Location",
+                    "Start Station Name",
+                    "End Station Name",
                 ]
                 rows = list(reader)
 
@@ -203,19 +209,21 @@ class PBSC:
             if len(rows) == 0:
                 break
 
-            # add locations
-            rows = [
-                {
-                    **row,
-                    "Start Station Location": station_id_to_location.get(
-                        row["Start Station Id"], None
-                    ),
-                    "End Station Location": station_id_to_location.get(
-                        row["End Station Id"], None
-                    ),
-                }
-                for row in rows
-            ]
+            # add station names and locations
+            for row in rows:
+                start_station_id = row["Start Station Id"]
+                row["Start Station Location"] = station_id_to_location.get(
+                    start_station_id, None
+                )
+                row["Start Station Name"] = station_id_to_name.get(
+                    start_station_id, None
+                )
+
+                end_station_id = row["End Station Id"]
+                row["End Station Location"] = station_id_to_location.get(
+                    end_station_id, None
+                )
+                row["End Station Name"] = station_id_to_name.get(end_station_id, None)
 
             # flip rows, so going from latest to earliest
             rows.reverse()
