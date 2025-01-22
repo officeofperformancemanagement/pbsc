@@ -107,6 +107,42 @@ class PBSC:
                 ]
             )
 
+    def _get_products(self):
+        url = self.base + "/v1/products/export"
+        params = {"count": self.default_count}
+
+        res = get(
+            url, auth=self.auth, headers={"X-API-KEY": self.api_key}, params=params
+        )
+
+        # test that res is actually a csv
+        with StringIO(res.text) as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+
+        if len(rows) == 0:
+            raise Exception("[pbsc] parsed zero products")
+
+        return rows
+
+    def _get_subscriptions(self):
+        url = self.base + "/v1/subscriptions/export"
+        params = {"count": 100_000_000}
+
+        res = get(
+            url, auth=self.auth, headers={"X-API-KEY": self.api_key}, params=params
+        )
+
+        # test that res is actually a csv
+        with StringIO(res.text) as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+
+        if len(rows) == 0:
+            raise Exception("[pbsc] parsed zero subscriptions")
+
+        return rows
+
     def _get_stations(self):
         url = self.base + "/v1/stations/export"
         params = {
@@ -157,8 +193,12 @@ class PBSC:
                 ]
             )
 
-    def export_trips(self, filepath, end=None, buffer_period=0, wait=30):
+    def export_trips(
+        self, filepath, end=None, buffer_period=0, wait=30, max_requests=1000
+    ):
+        products = self._get_products()
         stations = self._get_stations()
+        subscriptions = self._get_subscriptions()
 
         station_id_to_location = dict(
             [(station["Station Id"], station["Location"]) for station in stations]
@@ -168,13 +208,27 @@ class PBSC:
             [(station["Station Id"], station["Name"]) for station in stations]
         )
 
+        product_id_to_name = dict(
+            [(product["Product Id"], product["Name"]) for product in products]
+        )
+
+        subscription_id_to_product_name = dict(
+            [
+                (
+                    subscription["Subscription Id"],
+                    product_id_to_name[subscription["Subscription Product Id"]],
+                )
+                for subscription in subscriptions
+            ]
+        )
+
         if end is None:
             end = date.today() - timedelta(days=buffer_period)
 
         start = get_first_day_of_month(end)
         print(f"[pbsc] current period {start}:{end}")
 
-        for i in range(1000):
+        for i in range(max_requests):
             start = get_first_day_of_month(end)
 
             url = self.base + "/v1/trips/export"
@@ -202,6 +256,7 @@ class PBSC:
                     "End Station Location",
                     "Start Station Name",
                     "End Station Name",
+                    "Product Name",
                 ]
                 rows = list(reader)
 
@@ -224,6 +279,10 @@ class PBSC:
                     end_station_id, None
                 )
                 row["End Station Name"] = station_id_to_name.get(end_station_id, None)
+
+                row["Product Name"] = subscription_id_to_product_name.get(
+                    row["Subscription Id"], ""
+                )
 
             # flip rows, so going from latest to earliest
             rows.reverse()
